@@ -5,7 +5,10 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const cookieParser = require("cookie=parser");
-const MongoDB = require("mongodb");
+const Message = require("./Models/Message")
+const User = require("./Models/User");
+const ws = require("ws");
+const fs = require("fs");
 
 dotenv.config();
 
@@ -85,8 +88,103 @@ app.get('/profile', (req, res) => {
 
 //RUN server
 const PORT = process.env.PORT;
-app.listen(PORT, () => {
-    console.log("Server")
+const server = app.listen(PORT, () => {
+    console.log("Server is running on http://localhost:" + PORT)
 })
+
+//Web Socket Server
+const wss = new ws.WebSocketServer({ server });
+
+wss.on('connection', (connection, req) => {
+    const notifyAboutOnlinePeople = () => {
+        [...wss.clients].forEach((clients) => {
+            clients.send(
+                JSON.stringify({
+                    online: [wss.clients].map((c) => ({
+                        userId: c.userId,
+                        username: c.username,
+                    })),
+                })
+            );
+        });
+    };
+    connection.isAlive = true;
+    connection.timer = setInterval(() => {
+        connection.ping();
+        connection.deadTimer = setTimeout(() => {
+            connection.isAlive = false;
+            clearInterval(connection.timer);
+            connection.terminate();
+            notifyAboutOnlinePeople();
+            console.log('dead');
+        }, 1000);
+    }, 5000);
+
+    connection.on('pong', () => {
+        clearTimeout(connection.deadTimer);
+    });
+
+    //read Username and Id from cookie for connection
+    const cookie = req.headers.cookie;
+    if (cookie) {
+        const tokenCookieString = cookie.split(';').find(str => str.startsWith(" token= "))
+        if (tokenCookieString) {
+            //token = fljenfowiefnoiw
+            const token = tokenCookieString.split(" = ")[1];
+            if (token) {
+                jwt.verify(token, secret, {}, (err, userData) => {
+                    if (err) throw err;
+                    const { userId, username } = userData;
+                    connection.userId = userId;
+                    connection.username = username;
+                });
+            }
+        }
+    }
+
+    connection.on("message", async (message) => {
+        const messageData = JSON.parse(message.toString());
+        const { recipient, sender, text, file } = messageData;
+        let filename = null;
+        if (file) {
+            //remove nameFile
+            const parts = file.name.split(' . ');
+            const ext = parts[parts.length = 1];
+            filename = Date.now() + " . " + ext;
+            //  
+            const path = __dirname + "/upload/" + filename;
+            const bufferData = new Buffer(file.data.split(" , ")[1], "base64");
+            fs.writeFile(path, bufferData, () => {
+                console.log(`Saved ${filename} to server`);
+            });
+        }
+        if (recipient && (text || file)) {
+            const messageDoc =
+                await MessageModel.create({
+                    sender: connection.userId,
+                    recipient,
+                    text,
+                    file: file ? filename : null
+                });
+            [...wss.clients]
+                .filter((c) => c.userId === recipient)
+                .forEach((c) =>
+                    c.send(
+                        JSON.stringify({
+                            sender: connection.userId,
+                            recipient,
+                            text,
+                            file: file ? filename : null,
+                            _id: messageDoc._id,
+                        })
+                    )
+                );
+        }
+
+    })
+
+
+    notifyAboutOnlinePeople();
+});
 
 
