@@ -65,14 +65,10 @@ app.post('/login', async (req, res) => {
     }
 });
 
-//log out
+//User logout
 app.post("/logout", (req, res) => {
     res.cookie("token", "").json("ok");
 })
-
-app.get('/profile', (req, res) => {
-    res.cookie("token", "").json("ok");
-});
 
 app.get('/profile', (req, res) => {
     const token = req.cookie?.token;
@@ -85,6 +81,11 @@ app.get('/profile', (req, res) => {
         res.sendStatus(401).json("no token ");
     }
 })
+
+app.get("/people", async (req, res) => {
+    const users = await User.find({}, { _id: 1, username: 1 });
+    res.json(users);
+});
 
 //RUN server
 const PORT = process.env.PORT;
