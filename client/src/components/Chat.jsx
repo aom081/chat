@@ -4,6 +4,7 @@ import axios from 'axios';
 import Logo from './Logo';
 import Contact from './Contact';
 import { useContext } from 'react';
+import { uniqBy } from 'lodash';
 
 const Chat = () => {
   const [ws, setWs] = useState(null);
@@ -11,6 +12,7 @@ const Chat = () => {
   const [offlinePeople, setOfflinePeople] = useState({});
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [message, setMessage] = useState([]);
+  const [newMassageText, setNewMassageText] = useState("");
   const { username, id, setUsername, setId } = useContext(UserContext);
 
   useEffect(() => {
@@ -71,6 +73,41 @@ const Chat = () => {
     })
   }
 
+  const sendMessage = (e, file = null) => {
+    if (e) e.preventDefault();
+    ws.send(
+      JSON.stringify({
+        recipient: selectedUserId,
+        text: newMassageText,
+        file,
+      })
+    );
+    if (file) {
+      axios.get("/messages/" + selectedUserId).then((res) => {
+        setMessage(res.data);
+      });
+    } else {
+      setNewMassageText('');
+      setMessage((prev) => [...prev, {
+        text: newMassageText,
+        sender: id,
+        recipient: selectedUserId,
+        _id: Date.now(),
+      },
+      ]);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedUserId) {
+      axios.get("/messages/" + selectedUserId).then((res) => {
+        setMessage(res.data);
+      })
+    }
+  }, [selectedUserId])
+
+  const messageWithoutDups = uniqBy(message, "_id")
+
   return (
     <div className="flex h-screen">
       <div className="bg-white w-1/3 flex-col">
@@ -121,14 +158,32 @@ const Chat = () => {
       </div>
       <div className="flex flex-col bg-blue-50 w-2/3 p-2">
         <div className="flex-grow">
-          <div className="relative h-full flex-grow items-center justify-center">
-            <div className="text-gray-300">
-              &larr; Select a person from sidebar
+          {!selectedUserId && (
+            <div className="relative h-full flex-grow items-center justify-center">
+              <div className="text-gray-300">
+                &larr; Select a person from sidebar
+              </div>
             </div>
-          </div>
+          )}
+          {!!selectedUserId && (
+            <div className='relative h-full'>
+              <div className="overflow-y-scroll absolute top-0 left-0 bottom-2">
+                {messageWithoutDups.map(message => (
+                  <div key={message._id} className={(message.sender === id ? "text-right" : "text-left")}>
+                    <div className={"text-left inline-block p-2 my-2 rounded-md text-sm " + (message.sender === id ? "bg-blue-500 text-white" : "bg-white text-gray-500")} ></div>
+                  </div>
+                ))}
+
+              </div>
+            </div>
+          )
+          }
         </div>
-        <from className="flex gap-2">
-          <input type="text"
+        <from className="flex gap-2" onSubmit={sendMessage}>
+          <input
+            type="text"
+            value={newMassageText}
+            onChange={e => setNewMassageText(e.target.value)}
             placeholder='Type your message'
             className="bg-white flex-grow border rounded-sm p-2"
           />

@@ -9,6 +9,8 @@ const Message = require("./Models/Message")
 const User = require("./Models/User");
 const ws = require("ws");
 const fs = require("fs");
+const { resolve } = require("path");
+const { reject } = require("lodash");
 
 dotenv.config();
 
@@ -86,6 +88,31 @@ app.get("/people", async (req, res) => {
     const users = await User.find({}, { _id: 1, username: 1 });
     res.json(users);
 });
+
+const getUserDataFromRequest = (req) => {
+    return new Promise((resolve, reject) => {
+        const token = req.cookies?.token;
+        if (token) {
+            jwt.verify(token, secret, {}, (err, userData) => {
+                if (err) throw err;
+                resolve(userData);
+            })
+        } else {
+            reject("no token ");
+        }
+    })
+}
+
+app.get("/message/:userId", async (req, res) => {
+    const { userId } = req.params;
+    const userData = await getUserDataFromRequest(req);
+    const ourUserId = userData.userId;
+    const messages = await Message.find({
+        sender:{$in:[userId, ourUserId]},
+        recipient: {$in:[userId, ourUserId]},
+    }).sort({createdAt: 1 });
+    res.json(messages);
+})
 
 //RUN server
 const PORT = process.env.PORT;
