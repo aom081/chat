@@ -179,10 +179,8 @@ wss.on('connection', (connection, req) => {
             const parts = file.name.split(' . ');
             const ext = parts[parts.length = 1];
             filename = Date.now() + " . " + ext;
-            //  
             const path = __dirname + "/upload/" + filename;
-            const bufferData = new Buffer(file.data.split(" , ")[1], "base64");
-            fs.writeFile(path, bufferData, () => {
+            fs.writeFile(path, file.data.split(" , ")[1], "base64", () => {
                 console.log(`Saved ${filename} to server`);
             });
         }

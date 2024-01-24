@@ -108,6 +108,14 @@ const Chat = () => {
 
   const messageWithoutDups = uniqBy(message, "_id")
 
+  const sendFile = (e) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(e.target.files[0]);
+    reader.onload = () => {
+      sendMessage(null, { name: e.target.files[0].name, data: reader.result });
+    };
+  }
+
   return (
     <div className="flex h-screen">
       <div className="bg-white w-1/3 flex-col">
@@ -170,7 +178,20 @@ const Chat = () => {
               <div className="overflow-y-scroll absolute top-0 left-0 bottom-2">
                 {messageWithoutDups.map(message => (
                   <div key={message._id} className={(message.sender === id ? "text-right" : "text-left")}>
-                    <div className={"text-left inline-block p-2 my-2 rounded-md text-sm " + (message.sender === id ? "bg-blue-500 text-white" : "bg-white text-gray-500")} ></div>
+                    <div className={"text-left inline-block p-2 my-2 rounded-md text-sm " + (message.sender === id ? "bg-blue-500 text-white" : "bg-white text-gray-500")} >
+                      {message.text}
+                      {message.file && (
+                        <div>
+                          <a target="_blank" href={axios.defaults.baseURL + "/upload/" + message.file} className='flex items-center gap-1 bottom-b'>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
+                            </svg>
+                            {message.file}
+                          </a>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
 
@@ -188,7 +209,7 @@ const Chat = () => {
             className="bg-white flex-grow border rounded-sm p-2"
           />
           <label className="bg-blue-200 p-2 text-gray-600 cursor-pointer rounded-sm border-blue-200">
-            <input type="file" className='hidden' />
+            <input type="file" className='hidden' onChange={sendFile} />
             <svg
               xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
               <path stroke-linecap="round" stroke-linejoin="round" d="m9 13.5 3 3m0 0 3-3m-3 3v-6m1.06-4.19-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
